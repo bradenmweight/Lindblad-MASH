@@ -3,14 +3,14 @@
 #SBATCH -x bhd0005,bhc0024,bhd0020
 #SBATCH -o output_multipar.log
 #SBATCH --mem-per-cpu=10GB
-#SBATCH -t 1:00:00
+#SBATCH -t 10:00:00
 #SBATCH -N 1
 #SBATCH --ntasks-per-node=1
 
-NARRAY = str(1) # number of jobs
+NARRAY = str(10) # number of jobs
 filename = "GTHC"
 
-import os, sys
+import os
 import subprocess
 import time
 import numpy as np

@@ -4,15 +4,13 @@
 #SBATCH --job-name=sbatcharray
 #SBATCH --nodes=1 --ntasks=1
 #SBATCH --mem-per-cpu=2GB
-#SBATCH -t 1:00:00
+#SBATCH -t 10:00:00
 #SBATCH --output=out_%A_%a.out
 #SBATCH --error=err_%A_%a.err
 
 import sys, os
 sys.path.append(os.popen("pwd").read().split("/tmpdir")[0]) # include parent directory which has method and model files
 #-------------------------
-# import LMASH as method
-# import model_GHTC as model
 import method
 import model
 import time
