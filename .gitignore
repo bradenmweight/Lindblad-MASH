@@ -1,0 +1,13 @@
+### Files to ignore when pushing to git ###
+gnuplot_pics/
+
+*.out
+*.err
+*.log
+
+sbatch.py
+
+*.txt
+!LossIntDataFull.txt
+
+__pycache__/
