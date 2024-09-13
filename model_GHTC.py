@@ -53,10 +53,10 @@ def bathParam(N, ωm, λ, s, cutoff): # this calculates the parameters of the ba
 
 # Trajectory/Timing parameters
 
-NSteps = 400 # number of full steps in the simulation
-NStepsPrint = 100 # number of full steps that are stored/printed/outputed
+NSteps = 2000 # number of full steps in the simulation
+NStepsPrint = 500 # number of full steps that are stored/printed/outputed
 NSkip = int(NSteps/NStepsPrint) # used to enforce NStepsPrint
-totalTime = 0.200*ps_au # total amount of simulation time
+totalTime = 1.000*ps_au # total amount of simulation time
 dtF = totalTime/NSteps # full timestep 
 NTraj = 1
 
@@ -87,8 +87,8 @@ kx = 2 * np.pi * np.arange(0,NMod) / Lx # array of x-component of photon mode mo
 gHH0 = 0.0155*eV_au/np.sqrt(NMol) # 0-indidence light-matter coupling (number is total collective coupling in eV)
 θ = np.arctan(kx/kz) # angles of photon modes 
 gHH = gHH0 * (ωc/ωc0)**0.5 #* np.cos(θ) # light-matter coupling for each mode
-useForceCustom = False
-useHopDirCustom = False
+useForceCustom = True
+useHopDirCustom = True
 
 # Lindblad parameters
 
@@ -128,12 +128,12 @@ ZPE = beta/alpha
 ### Functions ###
 
 @jit(nopython=True)
-def get_xj(sd): # create molecule positions for light-matter coupling
+def get_xj(sd): # create molecule positions for light-matter coupling in GHTC Hamiltonian
     sd.xj[:] = np.arange(0,NMol) * (Lx/(NMol-1)) # positions of molecules (evenly spaced)
     #sd.xj[:] = np.sort(rn.rand(NMol)*Lx) # positions of molecules (random)
 
 @jit(nopython=True)
-def H(R, xj): # Hamiltonian (collective ground state energy has been set to 0)
+def H(R, xj): # GHTC Hamiltonian (collective ground state energy has been set to 0)
     H = np.zeros((NStates,NStates), dtype = np.complex128)
     H[0,0] = 0 # collective ground state energy
     for j in range(NMol):
@@ -150,13 +150,6 @@ def H(R, xj): # Hamiltonian (collective ground state energy has been set to 0)
     return H
 
 @jit(nopython=True)
-def Hinput(Hinputs, xj): # reconstruct H based on saved diagonal energies
-    Hinput = H(np.zeros(NR), xj)
-    for j in range(NMol):
-        Hinput[1+j,1+j] = Hinputs[j]
-    return Hinput
-
-@jit(nopython=True)
 def dH(sd): # derivative of state-dependent potential
     dH = np.zeros((NR,NStates,NStates), dtype = np.complex128)
     for j in range(NMol):
@@ -171,13 +164,6 @@ def dH0(sd): # derivative of state-independent potential which is the collective
     return dH0
 
 @jit(nopython=True)
-def ForceCustom(sd): # this calculates the classical force on each nuclear DOF using only the active state
-    sd.F[:] = -dH0(sd) # state-independent force
-    for j in range(NMol):
-        site_index = 1+j # state label of jth site/molecule
-        sd.F[j*NBath:(j+1)*NBath] -= np.abs(sd.U[site_index,sd.acst])**2*dHCustom # optimized for Holstein-like bath
-
-@jit(nopython=True)
 def initR(sd): # initialize R and P
     R0 = 0.0 # average initial nuclear position (could be array specific to each nuclear DOF)
     P0 = 0.0 # average initial nuclear momentum (could be array specific to each nuclear DOF)
@@ -187,17 +173,17 @@ def initR(sd): # initialize R and P
     σRHH = 1/np.sqrt(β*ωkHH**2) # classical distribution
     for Ri in range(NR):
         imode = (Ri%NBath) # current bath mode
-        sd.R[Ri] = σRHH[imode]*Ri/NR + R0 # gaussian random variable centered around R0 # rn.normal() * 
-        sd.P[Ri] = σPHH[imode]*Ri/NR + P0 # gaussian random variable centered around P0 # rn.normal() * 
+        sd.R[Ri] = rn.normal() * σRHH[imode] + R0 # gaussian random variable centered around R0
+        sd.P[Ri] = rn.normal() * σPHH[imode] + P0 # gaussian random variable centered around P0
 
 @jit(nopython=True)
 def initc(sd): # initialization of the coefficients
     if(sample_type=='focused'): # focused sampling
         sd.c[:] = np.sqrt(beta/alpha) * np.ones((NStates), dtype = np.complex128)
         sd.c[initState] = np.sqrt((1+beta)/alpha)
-        # for n in range(NStates):
-        #     uni = rn.random()
-        #     sd.c[n] = sd.c[n] * np.exp(1j*2*np.pi*uni)
+        for n in range(NStates):
+            uni = rn.random()
+            sd.c[n] = sd.c[n] * np.exp(1j*2*np.pi*uni)
     elif(sample_type=='gaussian'): # sampling with gaussian random components
         while(True):
             rand_pairs = np.zeros((NStates,2))
@@ -267,6 +253,21 @@ def getLStates(sd): # initialization of the coefficients
     return LStates
 
 @jit(nopython=True)
+def createEU_GTC(sd):
+    sd.E_GTC[:], sd.U_GTC[:,:] = np.linalg.eigh(H(np.zeros(NR), sd.xj))
+    overlap_mat = np.conj(sd.U).T
+    for n in range(NStates):
+        f = np.exp(1j*np.angle(overlap_mat[n,n]))
+        sd.U_GTC[:,n] = f * sd.U_GTC[:,n] # phase correction
+        
+@jit(nopython=True)
+def ForceCustom(sd): # this calculates the classical force on each nuclear DOF using only the active state
+    sd.F[:] = -dH0(sd) # state-independent force
+    for j in range(NMol):
+        site_index = 1+j # state label of jth site/molecule
+        sd.F[j*NBath:(j+1)*NBath] -= np.abs(sd.U[site_index,sd.acst])**2*dHCustom # optimized for Holstein-like bath
+
+@jit(nopython=True)
 def HopDirCustom(sd, hd):
     hop_dir = np.zeros(NR)
     for j in range(NMol):
@@ -277,6 +278,13 @@ def HopDirCustom(sd, hd):
             if(hd.acst_att!=n):
                 hop_dir[j*NBath:(j+1)*NBath] += -np.real(np.conj(sd.U[site_index,n]) * sd.U[site_index,hd.acst_att] / (sd.E[hd.acst_att] - sd.E[n]) * dHCustom * sd.c[hd.acst_att]*np.conj(sd.c[n])) 
     return hop_dir
+
+@jit(nopython=True)
+def Hinput(Hinputs, xj): # reconstruct H based on saved diagonal energies
+    Hinput = H(np.zeros(NR), xj)
+    for j in range(NMol):
+        Hinput[1+j,1+j] = Hinputs[j]
+    return Hinput
 
 ### Numba data types ###
 

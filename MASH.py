@@ -1,16 +1,7 @@
 import numpy as np
-from numpy import random as rn
-from copy import deepcopy as dc
-import random
-from time import time as timee
-from numba import jit, objmode, typeof, complex128
-from scipy.optimize import root
-from scipy import interpolate
-from scipy.integrate import solve_ivp
-# import model_GHTC as m
-# from model_GHTC import H, dH, dH0, initR, initc, get_xj, LBasisChange, LBasisChangeRevert, getLRates, getLStates, ForceCustom, HopDirCustom # import the functions from the model
+from numba import jit
 import model as m
-from model import H, dH, dH0, initR, initc, get_xj, ForceCustom, HopDirCustom # import the functions from the model
+from model import H, dH, dH0, initR, initc, get_xj, createEU_GTC, ForceCustom, HopDirCustom # import the functions from the model
     
 @jit(nopython=True)
 def expE(sd, dt):
@@ -23,14 +14,6 @@ def createEU(sd):
     for n in range(m.NStates):
         f = np.exp(1j*np.angle(overlap_mat[n,n]))
         sd.U[:,n] = f * sd.U[:,n] # phase correction
-    
-@jit(nopython=True)
-def createEU_GTC(sd):
-    sd.E_GTC[:], sd.U_GTC[:,:] = np.linalg.eigh(H(np.zeros(m.NR), sd.xj))
-    overlap_mat = np.conj(sd.U).T
-    for n in range(m.NStates):
-        f = np.exp(1j*np.angle(overlap_mat[n,n]))
-        sd.U_GTC[:,n] = f * sd.U_GTC[:,n] # phase correction
     
 @jit(nopython=True)
 def updateEU(sd0, sd1):
@@ -301,11 +284,6 @@ def fullStep(sd0, sd1, hd):
 def runTraj():
     
     # Create output arrays
-    
-    '''popACST = np.zeros((m.NStates,m.NStepsPrint+1))
-    popADI = np.zeros((m.NStates,m.NStepsPrint+1))
-    popTC = np.zeros((m.NStates,m.NStepsPrint+1))
-    popDIA = np.zeros((m.NStates,m.NStepsPrint+1))'''
     
     Hinputs_index = np.arange(1,1+m.NMol)
     
