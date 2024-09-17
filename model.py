@@ -11,9 +11,9 @@ import copy
 ### Parameters ###
 initState   = 0 # initial state
 totalTime   = 1200 # total amount of simulation time
-dtF         = 0.1 # full timestep 
+dtF         = 2 # full timestep 
 NSteps      = int(totalTime/dtF) # number of full steps in the simulation
-NTraj       = 1
+NTraj       = 100 # number of trajectories
 NStepsPrint = 200 # number of full steps that are stored/printed/outputed
 NSkip       = int(NSteps/NStepsPrint) # used to enforce NStepsPrint
 

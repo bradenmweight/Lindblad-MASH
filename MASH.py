@@ -152,7 +152,7 @@ def runTraj():
     rho_ensemble_dia = np.zeros((m.NStates,m.NStates,m.NStepsPrint+1), dtype=np.complex128)
     
     for itraj in range(m.NTraj): # repeat simulation for each trajectory
-        
+        print( itraj )
         # Initialize state and hop class objects
         sd0 = state_data() # state data before timestep propagation
         sd1 = state_data() # state data after timestep propagation
@@ -168,7 +168,7 @@ def runTraj():
         
         iskip = 0 # counting variable to determine when to store the current timestep data
         for t in range(m.NSteps): # single trajectory
-            print("t: ", t)
+            #print("t: ", t)
             
             # Save output variables
             if(t % m.NSkip == 0):
@@ -191,7 +191,7 @@ def runTraj():
         
     # Return output variables
     time = np.linspace( 0.0, m.NSteps * m.dtF, m.NStepsPrint+1 )
-    return time, active_state, psi_ad, rho_ensemble_ad, psi_dia, rho_ensemble_dia
+    return time, active_state, psi_ad, rho_ensemble_ad/m.NTraj, psi_dia, rho_ensemble_dia/m.NTraj
 
 
 
