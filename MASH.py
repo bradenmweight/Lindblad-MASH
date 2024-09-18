@@ -42,10 +42,10 @@ def DtoA_3D(matD, sd): # convert operator from diabatic to adiabatic basis
     return matA
         
 def updateForce(sd): # this calculates the classical force on each nuclear DOF using only the active state
-    sd.F[:] = -dH0(sd.R) # state-independent force
+    sd.F[:] = -dH0(sd.R).real # state-independent force
     dH_dia  = dH(sd.R) # diabatic dH
-    dH_ad   = DtoA_3D(dH(sd.R), sd)[:,sd.acst,sd.acst] # adiabatic dH, only active state
-    sd.F[:] += np.real(-dH_ad) # state-dependent force for diabatic dH
+    dH_ad   = DtoA_3D(dH_dia, sd)[:,sd.acst,sd.acst] # adiabatic dH, only active state
+    sd.F[:] += -dH_ad.real # state-dependent force for diabatic dH
     
 def PropH(sd0, sd1, dt):
     expE(sd1, dt/2)
@@ -58,15 +58,14 @@ def PropH(sd0, sd1, dt):
     expE(sd1, dt/2)
         
 def getHopDir(sd, hd):   
-    if(m.useHopDirCustom):
-        return HopDirCustom(sd, hd)
     hop_dir = np.zeros(m.NR)
     dc = np.zeros((m.NR, m.NStates, m.NStates), dtype=np.complex128)
     dE = np.expand_dims(sd.E, axis=1) - sd.E
     for i in range(m.NStates):
         dE[i,i] = 1.0
+    dH_tmp = dH(sd.R) # BMW: Took out of the loop below -- should be faster since only one call to dH() is needed
     for i in range(m.NR):
-        dc[i,:,:] = DtoA_2D(dH(sd)[i], sd) / dE
+        dc[i,:,:] = DtoA_2D(dH_tmp[i], sd) / dE
         for j in range(m.NStates):
             dc[i,j,j] = 0.0
     for k in range(m.NR):
@@ -119,21 +118,19 @@ def getACST(sd): # return state with largest population
     sd.acst = np.argmax(np.abs(sd.c))
          
 def hop_setup(sd0, sd1, hd): # determine rescaling conditions and perform hop attempt
-    print("Hop attempt!")
+    #print("Hop attempt!")
     getACST_att(sd1, hd)
     hop(sd1, hd)
     if(hd.accepted):
         hd.t_st += hd.dt
         sd1.acst = 1*hd.acst_att
         updateForce(sd1)
-    if(hd.N_int == m.max_int or hd.N_hop_att == m.max_hop_att):
-        hd.attempt = False
-    # sd0.copy(sd1)
-    sd1 = sd0
+    if(hd.N_hop_att == hd.max_hop_att):
+       hd.attempt = False
+    #sd0.copy(sd1)
     
 def fullStep(sd0, sd1, hd):
-    # sd0.copy(sd1)
-    sd1 = sd0
+    sd1.copy(sd0)
     hd.dt = 1.0*m.dtF
     PropH(sd0, sd1, hd.dt)
     sd1.dP = pop_diff(sd1)
@@ -237,6 +234,15 @@ class state_data(object): # storage object for state variables (wavefunction, nu
     #         for i in range(len(state_types)):
     #             setattr(self,state_types[i][0],copy.deepcopy(getattr(sd_new,state_types[i][0])))
         
+    # Copy values from other state_data object
+    def copy(self, sd_new):
+        attributes = dir(sd_new)
+        for attr in attributes:
+            if ( attr[0] != "_" ):
+                setattr(self, attr, getattr(sd_new, attr))
+
+
+
 class hop_data(object): # storage object for hopping variables (timesteps, hop conditions, etc.)
     def __init__(self):
         
@@ -248,7 +254,8 @@ class hop_data(object): # storage object for hopping variables (timesteps, hop c
         self.dt_r = 0.0 # smallest timestep of propagation from t0 that changes most populated state
         
         # Hopping conditions
-        
+        self.max_hop_att = 5 # maximum number of hop attempts per full timestep
+
         self.acst_att = 0 # state to attempt hop towards
         self.N_hop_att = 0 # number of hop attempts performed during current full timestep
         self.N_int = 0 # number of interpolations performed during current hop attempt

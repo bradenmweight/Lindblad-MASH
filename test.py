@@ -19,6 +19,7 @@ plt.plot( time, rho_ensemble_dia[1,1,:].real, c='red', lw=2, label="D1" )
 # plt.plot( exact_data[:,0], exact_data[:,6].real, c='black', lw=6, alpha=0.5, label="Exact A1" )
 # plt.plot( time, rho_ensemble_ad[0,0,:].real, c='red', lw=2, label="A0" )
 # plt.plot( time, rho_ensemble_ad[1,1,:].real, c='red', lw=2, label="A1" )
+# plt.plot( time, np.average(active_state,axis=0), c='blue', lw=2, label="Active State" )
 
 plt.legend()
 plt.xlabel("Time (a.u.)", fontsize=15)
